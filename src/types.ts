@@ -51,7 +51,7 @@ export interface VisionScreenshot {
   id: string;
   timestamp: string;
   slideIndex: number;
-  webpBase64: string;
+  imageBase64: string; // Base64 data URI (can be image/webp, image/svg+xml, etc.)
   byteSize: number;
   varianceDelta: number;
 }

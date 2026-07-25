@@ -74,7 +74,7 @@ export class VisionCaptureEngine {
         id: `slide_${Date.now()}_${this.slideCount}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         slideIndex: this.slideCount,
-        webpBase64: finalBase64,
+        imageBase64: finalBase64,
         byteSize: byteSize,
         varianceDelta: Math.round(varianceDelta * 100),
       };
@@ -84,11 +84,25 @@ export class VisionCaptureEngine {
   }
 
   /**
+   * Escapes special XML characters to prevent XSS in SVG content
+   */
+  private sanitizeXml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /**
    * Generates a simulated slide screenshot for testing/demo sandbox
    */
   public generateSimulatedSlide(slideTitle: string, subtitle: string): VisionScreenshot {
     this.slideCount++;
     
+    const safeSlideTitle = this.sanitizeXml(slideTitle);
+    const safeSubtitle = this.sanitizeXml(subtitle);
+
     // Create a clean SVG representation of a presentation slide
     const svgContent = `
       <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
@@ -96,8 +110,8 @@ export class VisionCaptureEngine {
         <rect x="40" y="40" width="1200" height="640" rx="20" fill="#1e293b" stroke="#334155" stroke-width="2"/>
         <circle cx="100" cy="100" r="16" fill="#38bdf8"/>
         <text x="130" y="108" font-family="sans-serif" font-size="20" font-weight="bold" fill="#38bdf8">CONFIDENTIAL MEETING SLIDE #${this.slideCount}</text>
-        <text x="100" y="240" font-family="sans-serif" font-size="44" font-weight="800" fill="#f8fafc">${slideTitle}</text>
-        <text x="100" y="310" font-family="sans-serif" font-size="24" fill="#94a3b8">${subtitle}</text>
+        <text x="100" y="240" font-family="sans-serif" font-size="44" font-weight="800" fill="#f8fafc">${safeSlideTitle}</text>
+        <text x="100" y="310" font-family="sans-serif" font-size="24" fill="#94a3b8">${safeSubtitle}</text>
         <rect x="100" y="380" width="1080" height="2" fill="#334155"/>
         <rect x="100" y="420" width="320" height="180" rx="12" fill="#0f172a" stroke="#0284c7" stroke-width="2"/>
         <text x="120" y="460" font-family="sans-serif" font-size="18" font-weight="bold" fill="#e0f2fe">Key Architecture Component</text>
@@ -125,7 +139,7 @@ export class VisionCaptureEngine {
       id: `slide_${Date.now()}_${this.slideCount}`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       slideIndex: this.slideCount,
-      webpBase64: dataUri,
+      imageBase64: dataUri,
       byteSize: Buffer.byteLength(svgContent, 'utf8'),
       varianceDelta: 100,
     };

@@ -18,19 +18,31 @@ async function startServer() {
 
   // Start Session (Zero-Trust RAM Credential Receiver)
   app.post('/api/session/start', async (req: Request, res: Response) => {
-    const { credentials, settings, isSimulated } = req.body;
-    if (!credentials || !credentials.zoomMeetingId) {
-      return res.status(400).json({ success: false, message: 'Invalid or missing credentials payload.' });
-    }
+    try {
+      const { credentials, settings, isSimulated } = req.body;
+      if (!credentials || !credentials.zoomMeetingId) {
+        return res.status(400).json({ success: false, message: 'Invalid or missing credentials payload.' });
+      }
 
-    const result = await globalBotSession.startSession(credentials, settings, !!isSimulated);
-    return res.json(result);
+      const result = await globalBotSession.startSession(credentials, settings, !!isSimulated);
+      return res.json(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('POST /api/session/start error:', msg);
+      return res.status(500).json({ success: false, message: 'Internal server error.' });
+    }
   });
 
   // Stop Session & Purge RAM
   app.post('/api/session/stop', async (req: Request, res: Response) => {
-    const result = await globalBotSession.stopSession();
-    return res.json(result);
+    try {
+      const result = await globalBotSession.stopSession();
+      return res.json(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('POST /api/session/stop error:', msg);
+      return res.status(500).json({ success: false, message: 'Internal server error.' });
+    }
   });
 
   // Session Status
@@ -49,11 +61,17 @@ async function startServer() {
 
   // Force Process & Flush Chunk
   app.post('/api/session/manual-flush', async (req: Request, res: Response) => {
-    const result = await globalBotSession.processAndFlushChunk();
-    if (result) {
-      return res.json({ success: true, result });
+    try {
+      const result = await globalBotSession.processAndFlushChunk();
+      if (result) {
+        return res.json({ success: true, result });
+      }
+      return res.status(400).json({ success: false, message: 'No active session or empty chunk buffer.' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('POST /api/session/manual-flush error:', msg);
+      return res.status(500).json({ success: false, message: 'Internal server error.' });
     }
-    return res.status(400).json({ success: false, message: 'No active session or empty chunk buffer.' });
   });
 
   // Server-Sent Events (SSE) for Real-Time Telemetry
@@ -104,6 +122,9 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server listening on http://0.0.0.0:${PORT}`);
+  }).on('error', (err) => {
+    console.error('Server failed to start:', err);
+    process.exit(1);
   });
 }
 

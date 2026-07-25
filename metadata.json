@@ -1,0 +1,6 @@
+{
+  "name": "Private Zoom Note-Taker & Vision Capture",
+  "description": "Zero-trust PWA with local WebCrypto encryption, automated Zoom Web Client bot, real-time audio diarization, visual slide-change capture, rolling AI analysis, and native Notion exports.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

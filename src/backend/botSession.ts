@@ -46,6 +46,7 @@ export class BotSessionManager {
 
   private timerInterval: NodeJS.Timeout | null = null;
   private simulationInterval: NodeJS.Timeout | null = null;
+  private isFlushing: boolean = false;
 
   private audioEngine: AudioPipelineEngine;
   private visionEngine: VisionCaptureEngine;
@@ -97,6 +98,9 @@ export class BotSessionManager {
     if (this.activeStatus.active) {
       return { success: false, message: 'A session is already currently active.' };
     }
+
+    // Prevent concurrent startSession race: set active immediately before any async work
+    this.activeStatus.active = true;
 
     // Store in volatile memory ONLY
     this.inMemoryCredentials = { ...credentials };
@@ -155,7 +159,18 @@ export class BotSessionManager {
         status: this.getStatus(),
         message: `Successfully connected Headless Browser to Zoom Meeting ID: ${credentials.zoomMeetingId}`,
       });
-      return { success: true, message: 'Joined Zoom meeting successfully.' };
+
+      // Start audio/vision capture pipeline for live sessions
+      this.startSimulatedMeetingPipeline();
+      this.activeStatus.phase = 'ACTIVE_RECORDING';
+      this.emitEvent({
+        type: 'STATUS_CHANGE',
+        timestamp: new Date().toISOString(),
+        status: this.getStatus(),
+        message: 'Live session capture pipeline started. Recording audio & screen share...',
+      });
+
+      return { success: true, message: 'Joined Zoom meeting and started capture successfully.' };
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.warn('Headless browser join notice:', errMsg);
@@ -308,7 +323,7 @@ export class BotSessionManager {
   private startTimers(): void {
     if (this.timerInterval) clearInterval(this.timerInterval);
 
-    this.timerInterval = setInterval(() => {
+    this.timerInterval = setInterval(async () => {
       if (!this.activeStatus.active) return;
 
       this.activeStatus.elapsedSeconds++;
@@ -316,7 +331,7 @@ export class BotSessionManager {
 
       // Check if chunk interval reached
       if (this.activeStatus.chunkElapsedSeconds >= this.activeStatus.chunkMaxSeconds) {
-        this.processAndFlushChunk();
+        await this.processAndFlushChunk();
       }
     }, 1000);
   }
@@ -325,11 +340,15 @@ export class BotSessionManager {
    * Triggers processing of current RAM chunk by LLM and exports to Notion
    */
   public async processAndFlushChunk(): Promise<ProcessedChunkResult | null> {
+    if (!this.activeStatus.active) return null;
+    if (this.isFlushing) return null;
     if (!this.inMemoryCredentials || !this.inMemorySettings) {
       return null;
     }
 
-    this.activeStatus.phase = 'PROCESSING_CHUNK';
+    this.isFlushing = true;
+    try {
+      this.activeStatus.phase = 'PROCESSING_CHUNK';
     const chunkNum = this.activeStatus.currentChunkNumber;
     const nowStr = new Date().toLocaleTimeString();
 
@@ -399,6 +418,9 @@ export class BotSessionManager {
     });
 
     return processedResult;
+    } finally {
+      this.isFlushing = false;
+    }
   }
 
   /**

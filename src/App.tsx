@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { CredentialsForm } from './components/CredentialsForm';
 import { LiveSessionMonitor } from './components/LiveSessionMonitor';
@@ -22,6 +22,12 @@ const DEFAULT_SETTINGS: ModelSettings = {
   chunkIntervalMinutes: 10,
   visionThreshold: 8,
 };
+
+// Maximum number of transcript lines / screenshots retained in memory.
+// Caps unbounded array growth (BUG 8) to avoid browser memory pressure
+// during long sessions — the oldest entries are dropped when the cap is hit.
+const MAX_TRANSCRIPTS = 500;
+const MAX_SCREENSHOTS = 500;
 
 const INITIAL_CREDENTIALS: Credentials = {
   zoomEmail: '',
@@ -63,6 +69,37 @@ export default function App() {
   const [flushing, setFlushing] = useState(false);
   const [globalMessage, setGlobalMessage] = useState<string | null>(null);
 
+  // BUG 6: Tracks whether the SSE stream is currently connected / receiving
+  // events. When SSE is live it is the single source of truth for
+  // sessionStatus, so the 3s polling loop must not overwrite its updates.
+  // Polling remains the fallback while SSE is disconnected.
+  const sseConnectedRef = useRef(false);
+
+  // BUG 7: Snapshots the credentials/settings edits made in the form before
+  // the vault modal opens for re-authentication, so a successful unlock saves
+  // the user's current edits instead of loading the stored (old) vault
+  // contents over them.
+  const pendingVaultSaveRef = useRef<{ credentials: Credentials; settings: ModelSettings } | null>(null);
+
+  // BUG 8: Counts dropped entries so the cap warning doesn't flood the console
+  // during long sessions (warn on first drop, then every 100 drops).
+  const cappedDropCountRef = useRef(0);
+
+  // BUG 8: Append an item to a bounded array. Once `max` is reached the oldest
+  // entry is removed so memory usage stays flat during long sessions.
+  const appendBounded = <T,>(prev: T[], item: T, max: number, label: string): T[] => {
+    if (prev.length >= max) {
+      cappedDropCountRef.current += 1;
+      if (cappedDropCountRef.current === 1 || cappedDropCountRef.current % 100 === 0) {
+        console.warn(
+          `[App] ${label} capped at ${max} entries; dropping oldest (${cappedDropCountRef.current} drops so far).`
+        );
+      }
+      return [...prev.slice(1), item];
+    }
+    return [...prev, item];
+  };
+
   // Initialize DB & Vault Check
   useEffect(() => {
     getVaultMetadata().then((meta) => {
@@ -79,7 +116,10 @@ export default function App() {
       try {
         const res = await fetch('/api/session/status');
         const data = await res.json();
-        if (data && data.status) {
+        // BUG 6: When SSE is connected it is the source of truth for status —
+        // skip the polled status to avoid a poll/SSE race overwriting fresh
+        // SSE events with stale polling data. History polling continues.
+        if (data && data.status && !sseConnectedRef.current) {
           setSessionStatus(data.status);
         }
       } catch (err) {
@@ -114,19 +154,31 @@ export default function App() {
   useEffect(() => {
     const eventSource = new EventSource('/api/session/stream');
 
+    // BUG 6: Mark SSE as live once the stream opens or delivers events so the
+    // polling loop stops competing for sessionStatus.
+    eventSource.onopen = () => {
+      sseConnectedRef.current = true;
+    };
+
+    eventSource.onerror = () => {
+      // Connection dropped / reconnecting — fall back to polling for status.
+      sseConnectedRef.current = false;
+    };
+
     eventSource.onmessage = (e) => {
       try {
+        sseConnectedRef.current = true;
         const event = JSON.parse(e.data);
         if (event.status) {
           setSessionStatus(event.status);
         }
 
         if (event.type === 'TRANSCRIPT_LINE' && event.transcriptLine) {
-          setTranscripts((prev) => [...prev, event.transcriptLine]);
+          setTranscripts((prev) => appendBounded(prev, event.transcriptLine, MAX_TRANSCRIPTS, 'Transcripts'));
         }
 
         if (event.type === 'SLIDE_CHANGE' && event.screenshot) {
-          setScreenshots((prev) => [...prev, event.screenshot]);
+          setScreenshots((prev) => appendBounded(prev, event.screenshot, MAX_SCREENSHOTS, 'Screenshots'));
         }
 
         if (event.type === 'CHUNK_PROCESSED' && event.processedChunk) {
@@ -143,29 +195,54 @@ export default function App() {
     };
 
     return () => {
+      sseConnectedRef.current = false;
       eventSource.close();
     };
   }, []);
 
   // Vault Unlock Handler
   const handleUnlockVault = async (passphrase: string): Promise<boolean> => {
+    let decrypted: { credentials: Credentials; settings: ModelSettings } | null = null;
     try {
       const payload = await getEncryptedVault();
       if (!payload) return false;
+      decrypted = await decryptData(passphrase, payload);
+    } catch {
+      return false; // Wrong passphrase or corrupted vault
+    }
 
-      const decrypted = await decryptData(passphrase, payload);
+    setMasterPassphrase(passphrase);
+    setIsVaultUnlocked(true);
+
+    // BUG 7: If the vault was opened to re-authenticate a "Save Vault" click,
+    // keep the user's in-form edits instead of loading the stored (old)
+    // credentials over them, and complete the save with the validated
+    // passphrase.
+    const pending = pendingVaultSaveRef.current;
+    if (pending) {
+      pendingVaultSaveRef.current = null;
+      setCredentials(pending.credentials);
+      setSettings(pending.settings);
+      try {
+        const savePayload = await encryptData(passphrase, pending);
+        await saveEncryptedVault(savePayload);
+        setGlobalMessage('Credentials saved to encrypted vault.');
+        setTimeout(() => setGlobalMessage(null), 4000);
+      } catch (err) {
+        console.error('Save vault error:', err);
+        setGlobalMessage('Vault unlocked, but saving failed. Please try again.');
+        setTimeout(() => setGlobalMessage(null), 5000);
+      }
+    } else {
       setCredentials(decrypted.credentials);
       setSettings(decrypted.settings);
-      setMasterPassphrase(passphrase);
-      setIsVaultUnlocked(true);
-      return true;
-    } catch {
-      return false;
     }
+    return true;
   };
 
   // Create New Vault Handler
   const handleCreateVault = async (passphrase: string): Promise<void> => {
+    pendingVaultSaveRef.current = null;
     const payload: EncryptedPayload = await encryptData(passphrase, { credentials, settings });
     await saveEncryptedVault(payload);
     setMasterPassphrase(passphrase);
@@ -176,10 +253,14 @@ export default function App() {
   // Save Vault Handler
   const handleSaveVault = async () => {
     if (!masterPassphrase) {
+      // BUG 7: Snapshot the current edits before the unlock modal opens so a
+      // successful unlock saves these edits rather than the stored vault data.
+      pendingVaultSaveRef.current = { credentials, settings };
       setIsVaultModalOpen(true);
       return;
     }
 
+    pendingVaultSaveRef.current = null;
     try {
       const payload = await encryptData(masterPassphrase, { credentials, settings });
       await saveEncryptedVault(payload);
@@ -188,6 +269,13 @@ export default function App() {
     } catch (err) {
       console.error('Save vault error:', err);
     }
+  };
+
+  // Vault Modal Close Handler — discard any pending (unsaved) edit snapshot so
+  // a later ordinary unlock doesn't trigger a stale save.
+  const handleCloseVaultModal = () => {
+    pendingVaultSaveRef.current = null;
+    setIsVaultModalOpen(false);
   };
 
   // Start Session Handler
@@ -304,7 +392,7 @@ export default function App() {
         hasExistingVault={hasVault}
         onUnlock={handleUnlockVault}
         onCreateVault={handleCreateVault}
-        onClose={() => setIsVaultModalOpen(false)}
+        onClose={handleCloseVaultModal}
       />
     </div>
   );

@@ -14,7 +14,7 @@ import {
 } from './types';
 import { decryptData, encryptData } from './lib/crypto';
 import { clearVault, getEncryptedVault, getVaultMetadata, saveEncryptedVault } from './lib/db';
-import { Lock, ShieldCheck, Radio, AlertTriangle } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 const DEFAULT_SETTINGS: ModelSettings = {
   apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
@@ -183,7 +183,7 @@ export default function App() {
     try {
       const payload = await encryptData(masterPassphrase, { credentials, settings });
       await saveEncryptedVault(payload);
-      setGlobalMessage('Encrypted credentials saved to local Web Crypto vault!');
+      setGlobalMessage('Credentials saved to encrypted vault.');
       setTimeout(() => setGlobalMessage(null), 4000);
     } catch (err) {
       console.error('Save vault error:', err);
@@ -225,7 +225,7 @@ export default function App() {
       const res = await fetch('/api/session/manual-flush', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        setGlobalMessage('Chunk processed and pushed to Notion successfully!');
+        setGlobalMessage('Chunk processed and pushed to Notion.');
         setTimeout(() => setGlobalMessage(null), 5000);
       } else {
         alert(`Flush Notice: ${data.message}`);
@@ -250,7 +250,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-16 selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-white text-gray-900 font-sans pb-16">
       {/* Top Navigation */}
       <Navbar
         status={sessionStatus}
@@ -259,40 +259,16 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         {/* Global Notification Banner */}
         {globalMessage && (
-          <div className="p-3.5 rounded-xl bg-indigo-950/80 border border-indigo-800/80 text-xs text-indigo-200 flex items-center justify-between shadow-lg animate-fade-in">
+          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-cyan-400 animate-pulse shrink-0" />
+              <Info className="w-4 h-4 text-blue-500 shrink-0" />
               <span>{globalMessage}</span>
             </div>
-            <button onClick={() => setGlobalMessage(null)} className="text-slate-400 hover:text-white">
+            <button onClick={() => setGlobalMessage(null)} className="text-gray-400 hover:text-gray-600 font-medium">
               ✕
-            </button>
-          </div>
-        )}
-
-        {/* Zero-Trust Vault Lock Warning Banner */}
-        {!isVaultUnlocked && (
-          <div className="p-4 rounded-2xl bg-slate-900 border border-indigo-900/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-950 text-indigo-400 border border-indigo-800">
-                <Lock className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-white">Encrypted Vault Locked</h3>
-                <p className="text-xs text-slate-400">
-                  Unlock your Web Crypto API vault to load saved Zoom credentials & Notion integration keys.
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsVaultModalOpen(true)}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition shrink-0"
-            >
-              {hasVault ? 'Unlock Vault' : 'Initialize Vault'}
             </button>
           </div>
         )}

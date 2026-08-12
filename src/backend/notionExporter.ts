@@ -30,6 +30,11 @@ export class NotionExporter {
     // Clean page ID (strip hyphens if needed or format properly)
     const cleanId = targetPageOrDbId.trim().replace(/-/g, '');
 
+    // Validate: must be exactly 32 hex characters after stripping hyphens
+    if (!/^[a-fA-F0-9]{32}$/.test(cleanId)) {
+      throw new Error('Invalid Notion page/database ID format.');
+    }
+
     const notion = new Client({ auth: notionApiKey });
 
     try {
@@ -172,8 +177,8 @@ export class NotionExporter {
         });
 
         for (const shot of chunkResult.screenshots) {
-          // If screenshot is a web URL or valid data URI, insert as image or code/caption block
-          let imgUrl = shot.webpBase64;
+          // Handle different image URI types: SVG data URIs, other data URIs (webp/png/jpeg), HTTP URLs, and fallback
+          const imgUrl = shot.imageBase64;
           if (imgUrl.startsWith('data:image/svg+xml')) {
             // For SVG simulated slide, include caption callout block
             blocks.push({
@@ -181,7 +186,18 @@ export class NotionExporter {
               type: 'callout',
               callout: {
                 icon: { emoji: '🖼️' },
-                rich_text: [{ type: 'text', text: { content: `Captured Slide #${shot.slideIndex} at ${shot.timestamp} (${Math.round(shot.byteSize / 1024)} KB WebP compressed)` } }],
+                rich_text: [{ type: 'text', text: { content: `Captured Slide #${shot.slideIndex} at ${shot.timestamp} (${Math.round(shot.byteSize / 1024)} KB SVG)` } }],
+              },
+            });
+          } else if (imgUrl.startsWith('data:image/')) {
+            // For WebP/PNG/JPEG base64 data URIs, use Notion image block with external type
+            blocks.push({
+              object: 'block',
+              type: 'image',
+              image: {
+                type: 'external',
+                external: { url: imgUrl },
+                caption: [{ type: 'text', text: { content: `Slide #${shot.slideIndex} (${shot.timestamp})` } }],
               },
             });
           } else if (imgUrl.startsWith('http')) {
@@ -195,13 +211,13 @@ export class NotionExporter {
               },
             });
           } else {
-            // Include embedded image reference block
+            // Fallback: include embedded image reference block
             blocks.push({
               object: 'block',
               type: 'callout',
               callout: {
                 icon: { emoji: '📷' },
-                rich_text: [{ type: 'text', text: { content: `Slide #${shot.slideIndex} Captured at ${shot.timestamp} - File Size: ${Math.round(shot.byteSize / 1024)} KB WebP (< 5MB limit passed)` } }],
+                rich_text: [{ type: 'text', text: { content: `Slide #${shot.slideIndex} Captured at ${shot.timestamp} - File Size: ${Math.round(shot.byteSize / 1024)} KB (< 5MB limit)` } }],
               },
             });
           }
@@ -223,7 +239,7 @@ export class NotionExporter {
         children: blocks as any,
       });
 
-      const pageUrl = `https://notion.so/${cleanId}`;
+      const pageUrl = `https://notion.so/${cleanId.slice(0, 8)}-${cleanId.slice(8, 12)}-${cleanId.slice(12, 16)}-${cleanId.slice(16, 20)}-${cleanId.slice(20)}`;
 
       return {
         success: true,

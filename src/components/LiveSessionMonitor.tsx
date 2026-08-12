@@ -236,7 +236,7 @@ export const LiveSessionMonitor: React.FC<LiveSessionMonitorProps> = ({
                 >
                   <div className="relative aspect-video rounded-md overflow-hidden bg-gray-100 border border-gray-200 mb-2">
                     <img
-                      src={s.webpBase64}
+                      src={s.imageBase64}
                       alt={`Slide #${s.slideIndex}`}
                       className="w-full h-full object-cover"
                     />
@@ -414,7 +414,7 @@ export const LiveSessionMonitor: React.FC<LiveSessionMonitorProps> = ({
               <span>Captured Slide #{selectedScreenshot.slideIndex} ({selectedScreenshot.timestamp})</span>
               <span className="text-gray-500 font-mono">{Math.round(selectedScreenshot.byteSize / 1024)} KB WebP</span>
             </div>
-            <img src={selectedScreenshot.webpBase64} alt="Slide Preview" className="w-full h-auto rounded-md max-h-[80vh] object-contain" />
+            <img src={selectedScreenshot.imageBase64} alt="Slide Preview" className="w-full h-auto rounded-md max-h-[80vh] object-contain" />
             <p className="text-xs text-center text-gray-500 mt-3">Click anywhere to close preview</p>
           </div>
         </div>

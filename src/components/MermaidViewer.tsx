@@ -16,7 +16,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code, id = 'mermai
   useEffect(() => {
     mermaid.initialize({
       startOnLoad: false,
-      theme: 'dark',
+      theme: 'default',
       securityLevel: 'loose',
       fontFamily: 'ui-sans-serif, system-ui, sans-serif',
     });
@@ -47,18 +47,15 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code, id = 'mermai
   };
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/90 overflow-hidden shadow-lg my-3">
+    <div className="rounded-lg border border-gray-200 bg-white overflow-hidden my-3">
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-800/80 border-b border-slate-700/60">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
-          <span className="text-xs font-semibold text-slate-300 tracking-wide">Mermaid.js Diagram</span>
-        </div>
+      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+        <span className="text-xs font-medium text-gray-700 tracking-wide">Mermaid.js Diagram</span>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setViewMode(viewMode === 'preview' ? 'code' : 'preview')}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-md transition"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition"
           >
             {viewMode === 'preview' ? <Code className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             {viewMode === 'preview' ? 'Source' : 'Diagram'}
@@ -66,9 +63,9 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code, id = 'mermai
 
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-md transition"
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
             {copied ? 'Copied' : 'Copy'}
           </button>
         </div>
@@ -78,15 +75,15 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code, id = 'mermai
       <div className="p-4 overflow-x-auto min-h-[140px] flex items-center justify-center">
         {viewMode === 'preview' ? (
           renderError ? (
-            <div className="text-amber-400/90 text-xs font-mono p-3 bg-amber-950/30 rounded-lg border border-amber-800/40 w-full">
+            <div className="text-amber-800 text-xs font-mono p-3 bg-amber-50 rounded-md border border-amber-200 w-full">
               <p className="font-semibold mb-1">Diagram Preview Rendering Notice</p>
               <pre className="whitespace-pre-wrap">{code}</pre>
             </div>
           ) : (
-            <div ref={containerRef} className="w-full flex justify-center text-slate-100 [&_svg]:max-w-full" />
+            <div ref={containerRef} className="w-full flex justify-center text-gray-800 [&_svg]:max-w-full" />
           )
         ) : (
-          <pre className="w-full text-xs font-mono text-cyan-300 bg-slate-950 p-3 rounded-lg overflow-x-auto whitespace-pre">
+          <pre className="w-full text-xs font-mono text-gray-800 bg-gray-50 border border-gray-200 p-3 rounded-md overflow-x-auto whitespace-pre">
             {code}
           </pre>
         )}

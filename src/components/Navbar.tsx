@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Lock, Unlock, ShieldCheck, Download, Radio, WifiOff } from 'lucide-react';
+import { Lock, Unlock, Download, FileText, WifiOff } from 'lucide-react';
 import { SessionStatus } from '../types';
 
 interface NavbarProps {
@@ -14,7 +14,6 @@ export const Navbar: React.FC<NavbarProps> = ({ status, isVaultUnlocked, onToggl
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
-    // Listen for PWA installation event
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleBeforeInstall = (e: any) => {
       e.preventDefault();
@@ -45,50 +44,39 @@ export const Navbar: React.FC<NavbarProps> = ({ status, isVaultUnlocked, onToggl
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14">
           {/* Brand */}
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 p-0.5 shadow-lg shadow-indigo-500/20">
-              <div className="h-full w-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                <Radio className="w-5 h-5 text-indigo-400 animate-pulse" />
-              </div>
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
+              <FileText className="w-4 h-4 text-white" />
             </div>
-
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold text-white tracking-tight">Zoom NoteBot AI</h1>
-                <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-300 bg-cyan-950/80 border border-cyan-800/60 rounded-full">
-                  PWA
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Zero-Trust Encrypted • WebCrypto
-              </p>
+              <h1 className="text-sm font-semibold text-gray-900 tracking-tight">NoteTaker</h1>
+              <p className="text-xs text-gray-500">Meeting notes & vision capture</p>
             </div>
           </div>
 
           {/* Status & Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {/* Offline Badge */}
             {isOffline && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-300 bg-amber-950/70 border border-amber-800/60 rounded-lg">
-                <WifiOff className="w-3.5 h-3.5" />
-                Offline Mode
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md">
+                <WifiOff className="w-3 h-3" />
+                Offline
               </span>
             )}
 
             {/* Session Status Pill */}
             {status.active ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/80 border border-emerald-800/60 rounded-lg text-emerald-300 text-xs font-semibold animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span>{status.phase === 'ACTIVE_RECORDING' ? 'RECORDING MEETING' : status.phase}</span>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 border border-green-200 rounded-md text-green-700 text-xs font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                <span>{status.phase === 'ACTIVE_RECORDING' ? 'Recording' : status.phase}</span>
               </div>
             ) : (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 border border-slate-700/60 rounded-lg text-slate-400 text-xs">
-                <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-md text-gray-500 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                 <span>Standby</span>
               </div>
             )}
@@ -96,22 +84,22 @@ export const Navbar: React.FC<NavbarProps> = ({ status, isVaultUnlocked, onToggl
             {/* Vault Lock/Unlock Button */}
             <button
               onClick={onToggleVaultLock}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition border shadow-sm ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition border ${
                 isVaultUnlocked
-                  ? 'bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 border-emerald-700/60'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                  ? 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200'
+                  : 'bg-gray-50 hover:bg-gray-100 text-gray-600 border-gray-200'
               }`}
-              title={isVaultUnlocked ? 'Vault Unlocked - Click to lock' : 'Vault Locked - Click to unlock'}
+              title={isVaultUnlocked ? 'Vault unlocked' : 'Vault locked'}
             >
               {isVaultUnlocked ? (
                 <>
-                  <Unlock className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Vault Unlocked</span>
+                  <Unlock className="w-3 h-3 text-green-500" />
+                  <span>Unlocked</span>
                 </>
               ) : (
                 <>
-                  <Lock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Unlock Vault</span>
+                  <Lock className="w-3 h-3 text-gray-400" />
+                  <span>Vault</span>
                 </>
               )}
             </button>
@@ -120,10 +108,10 @@ export const Navbar: React.FC<NavbarProps> = ({ status, isVaultUnlocked, onToggl
             {deferredPrompt && (
               <button
                 onClick={handleInstallPWA}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition"
               >
-                <Download className="w-3.5 h-3.5" />
-                Install App
+                <Download className="w-3 h-3" />
+                Install
               </button>
             )}
           </div>
